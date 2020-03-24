@@ -28,6 +28,7 @@ image_df = pd.DataFrame({'image': unique_images, 'image_id': range(len(unique_im
 annotations = pd.merge(annotations, image_df)
 annotations.to_pickle(annotation_result_path)
 
+
 def get_feats():
     vgg16_feats = np.zeros((len(unique_images), 4096))
     with tf.Session() as sess:
@@ -37,10 +38,13 @@ def get_feats():
         for i in range(len(unique_images)):
             img_list = utils.load_image(unique_images[i])
             batch = img_list.reshape((1, 224, 224, 3))
-            feature = sess.run(vgg.fc7, feed_dict={images: batch})#提取fc7层的特征
+            # 提取fc7层的特征
+            feature = sess.run(vgg.fc7, feed_dict={images: batch})
             feature = np.reshape(feature, [4096])
-	     feature /= norm(feature) # 特征归一化
-            vgg16_feats[i, :] = feature #每张图片的特征向量为1行
+            # 特征归一化
+            feature /= norm(feature)
+            # 每张图片的特征向量为1行
+            vgg16_feats[i, :] = feature
     vgg16_feats = np.save('D:/dataset_code/数据集/flickr+mscoco/flickr30k/data/vgg16_feats', vgg16_feats)
     return vgg16_feats
 
