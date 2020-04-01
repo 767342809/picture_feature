@@ -32,3 +32,4 @@ output_model/
 resnet_v1_50/
 resnet_v2_50/
 vgg16/
+tfrecord/
