@@ -70,7 +70,6 @@ def main():
         builder = tf.saved_model.builder.SavedModelBuilder(builder_result_path)
         builder.add_meta_graph_and_variables(sess, ["serve"])
         builder.save()
-
     print("done")
 
 

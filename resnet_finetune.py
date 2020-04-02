@@ -98,28 +98,47 @@ def train(checkpoint_path: str, record_path):
     image, label = data_provider.get(['image', 'label'])
     inputs, labels = tf.train.batch([image, label],
                                     batch_size=1,
-                                    # capacity=5*FLAGS.batch_size,
                                     allow_smaller_final_batch=True)
     inputs = tf.cast(inputs, tf.float32)
 
     with slim.arg_scope(slim.nets.resnet_v1.resnet_arg_scope()):
-        net, endpoints = resnet_v1.resnet_v1_50(inputs, 1000)
+        net, endpoints = resnet_v1.resnet_v1_50(inputs, None)
+        net = tf.squeeze(net, axis=[1, 2])
+        logits = slim.fully_connected(net, num_outputs=1000,
+                                      activation_fn=None, scope='resnet_v1_50/logits')
+        logits = tf.nn.softmax(logits)
         print(net)
 
-        vars_to_train = get_trainable_variables()
-        print(vars_to_train)
+        vars_to_train = get_trainable_variables("resnet_v1_50/logits")
+        print("vars_to_train")
+        for v in vars_to_train:
+            print(v)
 
-        optimizer = tf.train.MomentumOptimizer(learning_rate=0.1,
-                                               momentum=0.9)
-        train_op = slim.learning.create_train_op(slim.losses.get_total_loss(), optimizer,
-                                      summarize_gradients=True,
-                                      variables_to_train=vars_to_train)
+        optimizer = tf.train.MomentumOptimizer(
+            learning_rate=0.1,
+            momentum=0.9
+        )
+
+        slim.losses.sparse_softmax_cross_entropy(
+            logits=logits,
+            labels=labels,
+            scope='Loss'
+        )
+        train_op = slim.learning.create_train_op(
+            slim.losses.get_total_loss(), optimizer,
+            summarize_gradients=True,
+            variables_to_train=vars_to_train
+        )
 
         variables_to_restore = []
         for var in slim.get_model_variables():
             variables_to_restore.append(var)
-        init_fn = slim.assign_from_checkpoint_fn(checkpoint_path, variables_to_restore, True)
-        print(init_fn)
+
+        print("variables_to_restore from model")
+        for vv in variables_to_restore:
+            print(vv)
+        init_fn = slim.assign_from_checkpoint_fn(checkpoint_path, variables_to_restore, ignore_missing_vars=True)
+        # print(init_fn)
 
         slim.learning.train(train_op=train_op, logdir='./training',
                             init_fn=init_fn, number_of_steps=10,
@@ -157,5 +176,5 @@ def image_to_tfrecord(img_file, record_file_num, label, record_path):
 
 if __name__ == "__main__":
     tf_record_fold_path = "./tfrecord/"
-    image_to_tfrecord("/Users/liangyue/Documents/frozen_model_vgg_16/1.jpg", 0, 1, tf_record_fold_path)
+    # image_to_tfrecord("/Users/liangyue/Documents/frozen_model_vgg_16/1.jpg", 0, 1, tf_record_fold_path)
     train(PRE_TRAINED_MODEL_PATH, tf_record_fold_path + "trains-*.tfrecord")
