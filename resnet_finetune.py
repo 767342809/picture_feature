@@ -1,10 +1,5 @@
-import os
-from PIL import Image
-
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-
-
 
 
 PRE_TRAINED_MODEL_PATH = "/Users/liangyue/Documents/frozen_model_vgg_16/model/resnet_v1_50.ckpt"
@@ -109,6 +104,7 @@ def train(checkpoint_path: str, record_path):
 
     with slim.arg_scope(slim.nets.resnet_v1.resnet_arg_scope()):
         net, endpoints = resnet_v1.resnet_v1_50(inputs, 1000)
+        print(net)
 
         vars_to_train = get_trainable_variables()
         print(vars_to_train)
@@ -132,20 +128,30 @@ def train(checkpoint_path: str, record_path):
 
 
 def image_to_tfrecord(img_file, record_file_num, label, record_path):
-    set_width, set_height = 224, 224
-    img = Image.open(img_file, "r")
-    img = img.resize((set_width, set_height), Image.ANTIALIAS)
-    img_raw = img.tobytes()
-    record_file_name = ("trains-%.3d.tfrecord" % record_file_num)
-    writer = tf.python_io.TFRecordWriter(record_path + record_file_name)
-    example = tf.train.Example(features=tf.train.Features(feature={
-                  'image/encoded': tf.train.Feature(bytes_list=tf.train.BytesList(value=[img_raw])),
-                  'image/format': tf.train.Feature(bytes_list=tf.train.BytesList(value=[b'jpg'])),
-                  'image/width': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_width])),
-                  'image/height': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_height])),
-                  'image/label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label]))
-    }))
-    writer.write(example.SerializeToString())
+    with tf.Session() as sess:
+        set_width, set_height = 224, 224
+        img_raw = tf.gfile.FastGFile(img_file, 'rb').read()
+        decode_data = tf.image.decode_jpeg(img_raw, channels=3)
+        decode_data = tf.image.resize_image_with_pad(
+            decode_data, target_height=set_height, target_width=set_width, method=tf.image.ResizeMethod.BILINEAR)
+        decode_data = tf.cast(decode_data, tf.uint8)
+        encoded_image = tf.image.encode_jpeg(decode_data)
+        img_raw = encoded_image.eval()
+
+        # # 保存图片
+        # with tf.gfile.GFile(record_path+'resize.jpg', 'wb') as f:
+        #     f.write(encoded_image.eval())
+
+        record_file_name = ("trains-%.3d.tfrecord" % record_file_num)
+        writer = tf.python_io.TFRecordWriter(record_path + record_file_name)
+        example = tf.train.Example(features=tf.train.Features(feature={
+                      'image/encoded': tf.train.Feature(bytes_list=tf.train.BytesList(value=[img_raw])),
+                      'image/format': tf.train.Feature(bytes_list=tf.train.BytesList(value=[b'jpg'])),
+                      'image/width': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_width])),
+                      'image/height': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_height])),
+                      'image/label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label]))
+        }))
+        writer.write(example.SerializeToString())
     writer.close()
 
 
