@@ -157,9 +157,9 @@ def image_to_tfrecord(img_file, record_file_num, label, record_path):
         encoded_image = tf.image.encode_jpeg(decode_data)
         img_raw = encoded_image.eval()
 
-        # # 保存图片
-        # with tf.gfile.GFile(record_path+'resize.jpg', 'wb') as f:
-        #     f.write(encoded_image.eval())
+        # 保存图片
+        with tf.gfile.GFile(record_path+'resize.jpg', 'wb') as f:
+            f.write(encoded_image.eval())
 
         record_file_name = ("trains-%.3d.tfrecord" % record_file_num)
         writer = tf.python_io.TFRecordWriter(record_path + record_file_name)
@@ -176,5 +176,5 @@ def image_to_tfrecord(img_file, record_file_num, label, record_path):
 
 if __name__ == "__main__":
     tf_record_fold_path = "./tfrecord/"
-    # image_to_tfrecord("/Users/liangyue/Documents/frozen_model_vgg_16/1.jpg", 0, 1, tf_record_fold_path)
-    train(PRE_TRAINED_MODEL_PATH, tf_record_fold_path + "trains-*.tfrecord")
+    image_to_tfrecord("/Users/liangyue/Documents/frozen_model_vgg_16/1.jpg", 0, 1, tf_record_fold_path)
+    # train(PRE_TRAINED_MODEL_PATH, tf_record_fold_path + "trains-*.tfrecord")
