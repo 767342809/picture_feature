@@ -4,11 +4,15 @@ import logging
 from enum import Enum
 import matplotlib.pyplot as plt
 
-from skimage.color import rgb2gray
-from skimage.feature import hog, local_binary_pattern, ORB, match_descriptors, plot_matches
-from skimage import exposure
-from skimage.transform import resize
 import numpy as np
+from scipy import ndimage as ndi
+from skimage import exposure
+from skimage.util import img_as_float
+from skimage.color import rgb2gray
+from skimage.filters import gabor_kernel
+from skimage.transform import resize
+from skimage.feature import hog, local_binary_pattern, ORB, match_descriptors, plot_matches
+
 
 from skimage.io import imread
 
@@ -73,10 +77,70 @@ def look_two_picture_match(file1, file2):
     plt.show()
 
 
+def look_kernel_work_on_image(img1, img2):
+    img = DetectImageFeature()
+    shrink = (slice(0, None, 3), slice(0, None, 3))
+    img1 = img_as_float(rgb2gray(img.load_img(img1)))[shrink]
+    img2 = img_as_float(rgb2gray(img.load_img(img2)))[shrink]
+    images = (img1, img2)
+    image_names = ("img1", "img2")
+
+    def power(image, kernel):
+        # Normalize images for better comparison.
+        image = (image - image.mean()) / image.std()
+        return np.sqrt(ndi.convolve(image, np.real(kernel), mode='wrap') ** 2 +
+                       ndi.convolve(image, np.imag(kernel), mode='wrap') ** 2)
+
+    # Plot a selection of the filter bank kernels and their responses.
+    results = []
+    kernel_params = []
+    for theta in range(4):
+        theta = theta / 4. * np.pi
+        for sigma in (1, 3):
+            for frequency in (0.05, 0.25):
+                kernel = np.real(gabor_kernel(frequency, theta=theta,
+                                              sigma_x=sigma, sigma_y=sigma))
+                params = 'theta=%d,\nfrequency=%.2f' % (theta * 180 / np.pi, frequency)
+                kernel_params.append(params)
+                # Save kernel and the power image for each image
+                results.append((kernel, [power(img, kernel) for img in images]))
+
+    fig, axes = plt.subplots(nrows=len(kernel_params) + 1, ncols=3, figsize=(5, 6))
+    plt.gray()
+
+    fig.suptitle('Image responses for Gabor filter kernels', fontsize=12)
+
+    axes[0][0].axis('off')
+
+    # Plot original images
+    for label, img, ax in zip(image_names, images, axes[0][1:]):
+        ax.imshow(img)
+        ax.set_title(label, fontsize=9)
+        ax.axis('off')
+
+    for label, (kernel, powers), ax_row in zip(kernel_params, results, axes[1:]):
+        # Plot Gabor kernel
+        ax = ax_row[0]
+        ax.imshow(np.real(kernel))
+        ax.set_ylabel(label, fontsize=7)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # Plot Gabor responses with the contrast normalized for each filter
+        vmin = np.min(powers)
+        vmax = np.max(powers)
+        for patch, ax in zip(powers, ax_row[1:]):
+            ax.imshow(patch, vmin=vmin, vmax=vmax)
+            ax.axis('off')
+
+    plt.show()
+
+
 class DetectMethod(Enum):
     HOG = 1
     LBP = 2
     ORB = 3
+    GABOR_FILTER = 4
 
 
 class DetectImageFeature(object):
@@ -107,6 +171,26 @@ class DetectImageFeature(object):
         descriptors = (descriptors1 * 1).reshape(1, 200 * 256)[0]
         return descriptors
 
+    def detect_gabor_filter_feature(self, img_path):
+        shrink = (slice(0, None, 3), slice(0, None, 3))
+        image = img_as_float(rgb2gray(self.load_img(img_path)))[shrink]
+        # prepare filter bank kernels
+        kernels = []
+        for theta in range(4):
+            theta = theta / 4. * np.pi
+            for sigma in (1, 3):
+                for frequency in (0.05, 0.25):
+                    kernel = np.real(gabor_kernel(frequency, theta=theta,
+                                                  sigma_x=sigma, sigma_y=sigma))
+                    kernels.append(kernel)
+        kernels_num = len(kernels)
+        feats = np.zeros(kernels_num*2, dtype=np.double)
+        for k, kernel in enumerate(kernels):
+            filtered = ndi.convolve(image, kernel, mode='wrap')
+            feats[k] = filtered.mean()
+            feats[k + kernels_num] = filtered.var()
+        return feats
+
     def detect_lbp_feature(self, img_path):
         image = self.load_img(img_path)
         image = rgb2gray(image)
@@ -127,7 +211,8 @@ def write_vector_to_csv(method: Enum):
     refs = {
         DetectMethod.HOG.name: detect_feature.detect_hog_feature,
         DetectMethod.LBP.name: detect_feature.detect_lbp_feature,
-        DetectMethod.ORB.name: detect_feature.detect_orb_feature
+        DetectMethod.ORB.name: detect_feature.detect_orb_feature,
+        DetectMethod.GABOR_FILTER.name: detect_feature.detect_gabor_filter_feature
     }
     try:
         detect_method = refs[method.name]
@@ -181,10 +266,7 @@ def test_distance():
 
 
 if __name__ == "__main__":
-    # write_vector_to_csv(DetectMethod.ORB)
+    write_vector_to_csv(DetectMethod.GABOR_FILTER)
     # test_distance()
     # look_hog_picture("https://wx2.sinaimg.cn/orj1080/82488d87gy1gctda842b0j22ns3zke84.jpg")
-    look_two_picture_match(
-        "https://wx3.sinaimg.cn/orj1080/3dd2a159gy1gbty6fem6lj23402c07wj.jpg",
-        "http://mmbiz.qpic.cn/sz_mmbiz_jpg/jTEoOWfUwDNUcXKicvFFtWkJicoo8zx2hxhSBjCy6mIZDqo3T0C385k3zIPPshAD9JYF0QMNLyr3aAStBljOeNzw/0?wx_fmt=jpeg"
-    )
+    # look_kernel_work_on_image(img_file, img_file2)
