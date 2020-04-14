@@ -34,24 +34,26 @@ def main():
     #     flow, _ = vgg.vgg_16(input_node)
     # flow = tf.cast(flow, tf.uint8, 'out')  # 设置输出类型以及输出的接口名字，为了之后的调用pb的时候使用
 
-    # # resnet_v1_50
-    # with slim.arg_scope(resnet_v1.resnet_arg_scope()):
-    #     flow, _ = resnet_v1.resnet_v1_50(input_node, 1000)
-    # flow = tf.cast(flow, tf.uint8, 'out')
+    # resnet_v1_50
+    with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+        flow, _ = resnet_v1.resnet_v1_50(input_node, 1000)
+    flow = tf.cast(flow, tf.uint8, 'out')
 
     # ## inception
     # with slim.arg_scope(inception.inception_v3_arg_scope()):
     #     flow, _ = inception.inception_v3(input_node)
     # flow = tf.cast(flow, tf.uint8, 'out')
 
-    # resnet_v2_50
-    with slim.arg_scope(resnet_v2.resnet_arg_scope()):
-        flow, _ = resnet_v2.resnet_v2_50(input_node, is_training=False)
-    flow = tf.cast(flow, tf.uint8, 'out')
+    # # resnet_v2_50
+    # with slim.arg_scope(resnet_v2.resnet_arg_scope()):
+    #     flow, _ = resnet_v2.resnet_v2_50(input_node, is_training=False)
+    # flow = tf.cast(flow, tf.uint8, 'out')
 
     saver = tf.train.Saver()
     with tf.Session() as sess:
         saver.restore(sess, model_path)
+        for var in tf.trainable_variables():
+            print(var)
         # 保存图
         tf.train.write_graph(sess.graph_def, f'./output_model/{model_name}', "model.pb")
         # 把图和参数结构一起
@@ -91,5 +93,5 @@ def load_pb():
 
 
 if __name__ == '__main__':
-    # main()
-    load_pb()
+    main()
+    # load_pb()

@@ -1,7 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
-
 PRE_TRAINED_MODEL_PATH = "/Users/liangyue/Documents/frozen_model_vgg_16/model/resnet_v1_50.ckpt"
 
 
@@ -105,19 +104,18 @@ def train(checkpoint_path: str, record_path):
         net, endpoints = resnet_v1.resnet_v1_50(inputs, None)
         net = tf.squeeze(net, axis=[1, 2])
         logits = slim.fully_connected(net, num_outputs=1000,
-                                      activation_fn=None, scope='resnet_v1_50/logits')
+                                      activation_fn=None, scope='Predict')
         logits = tf.nn.softmax(logits)
-        print(net)
 
-        vars_to_train = get_trainable_variables("resnet_v1_50/logits")
-        print("vars_to_train")
-        for v in vars_to_train:
-            print(v)
-
-        optimizer = tf.train.MomentumOptimizer(
-            learning_rate=0.1,
-            momentum=0.9
+        vars_to_train = get_trainable_variables(
+            "resnet_v1_50/conv1, resnet_v1_50/block1, resnet_v1_50/block2, resnet_v1_50/block3, resnet_v1_50/block4"
         )
+        # print("vars_to_train")
+        # for v in vars_to_train:
+        #     print(v, type(v))
+
+        # optimizer = tf.train.MomentumOptimizer(learning_rate=0.1, momentum=0.9)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1)
 
         slim.losses.sparse_softmax_cross_entropy(
             logits=logits,
@@ -131,19 +129,22 @@ def train(checkpoint_path: str, record_path):
         )
 
         variables_to_restore = []
-        for var in slim.get_model_variables():
+        for var in slim.get_variables_to_restore():
             variables_to_restore.append(var)
 
-        print("variables_to_restore from model")
-        for vv in variables_to_restore:
-            print(vv)
+        # print("variables_to_restore from model")
+        # for vv in variables_to_restore:
+        #     print(vv)
         init_fn = slim.assign_from_checkpoint_fn(checkpoint_path, variables_to_restore, ignore_missing_vars=True)
-        # print(init_fn)
+        print(init_fn)
 
+        ckpt_file_path = "./tfrecord/saved_model"
         slim.learning.train(train_op=train_op, logdir='./training',
                             init_fn=init_fn, number_of_steps=10,
                             save_summaries_secs=20,
                             save_interval_secs=600)
+        saver = tf.train.Saver()
+        # saver.save(ckpt_file_path)
 
 
 def image_to_tfrecord(img_file, record_file_num, label, record_path):
@@ -176,5 +177,5 @@ def image_to_tfrecord(img_file, record_file_num, label, record_path):
 
 if __name__ == "__main__":
     tf_record_fold_path = "./tfrecord/"
-    image_to_tfrecord("/Users/liangyue/Documents/frozen_model_vgg_16/1.jpg", 0, 1, tf_record_fold_path)
-    # train(PRE_TRAINED_MODEL_PATH, tf_record_fold_path + "trains-*.tfrecord")
+    # image_to_tfrecord("https://wx1.sinaimg.cn/orj1080/53db7999gy1gd0cxmhljwj215o0rs4qp.jpg", 1, 0, tf_record_fold_path)
+    train(PRE_TRAINED_MODEL_PATH, tf_record_fold_path + "trains-*.tfrecord")
