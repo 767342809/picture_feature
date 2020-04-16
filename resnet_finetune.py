@@ -1,18 +1,20 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import os
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 PRE_TRAINED_MODEL_PATH = "/Users/liangyue/Documents/frozen_model_vgg_16/model/resnet_v1_50.ckpt"
 
 
-def load_variables_from_model(checkpoint_path: str, is_print_var_name: bool=False):
-    reader = tf.train.NewCheckpointReader(checkpoint_path)
-    var_to_shape_map = reader.get_variable_to_shape_map()
+class OssPath(object):
+    BUCKET_PATH = "oss://yit-prod-pai"
+    PREFIX = "ml-pai/image_finetune"
+    MODEL_NAME = "resnet_v1_50.ckpt"
 
-    if is_print_var_name:
-        for key in var_to_shape_map:
-            print("tensor_name: ", key, var_to_shape_map[key])
-
-    return var_to_shape_map
+    PRE_TRAINED_MODEL_PATH = os.path.join(BUCKET_PATH, PREFIX, "pre_trained_model", MODEL_NAME)
+    TF_RECORD_PATH = os.path.join(BUCKET_PATH, PREFIX, "tfrecord_data")
+    LOG_DIR_PATH = os.path.join(BUCKET_PATH, PREFIX, "training_log")
 
 
 def get_trainable_variables(checkpoint_exclude_scopes=None):
@@ -90,20 +92,21 @@ def get_record_dataset(record_path,
 from tensorflow.contrib.slim.nets import vgg, resnet_v1
 
 
-def train(checkpoint_path: str, record_path):
-    dataset = get_record_dataset(record_path, num_samples=1,
-                                 num_classes=1000)
+def train(checkpoint_path, record_path, is_oss=False):
+    num_classes = 1000
+    dataset = get_record_dataset(record_path, num_samples=2,
+                                 num_classes=num_classes)
     data_provider = slim.dataset_data_provider.DatasetDataProvider(dataset)
     image, label = data_provider.get(['image', 'label'])
     inputs, labels = tf.train.batch([image, label],
-                                    batch_size=1,
+                                    batch_size=2,
                                     allow_smaller_final_batch=True)
     inputs = tf.cast(inputs, tf.float32)
 
     with slim.arg_scope(slim.nets.resnet_v1.resnet_arg_scope()):
         net, endpoints = resnet_v1.resnet_v1_50(inputs, None)
         net = tf.squeeze(net, axis=[1, 2])
-        logits = slim.fully_connected(net, num_outputs=1000,
+        logits = slim.fully_connected(net, num_outputs=num_classes,
                                       activation_fn=None, scope='Predict')
         logits = tf.nn.softmax(logits)
 
@@ -136,46 +139,28 @@ def train(checkpoint_path: str, record_path):
         # for vv in variables_to_restore:
         #     print(vv)
         init_fn = slim.assign_from_checkpoint_fn(checkpoint_path, variables_to_restore, ignore_missing_vars=True)
-        print(init_fn)
 
-        ckpt_file_path = "./tfrecord/saved_model"
-        slim.learning.train(train_op=train_op, logdir='./training',
+        if is_oss:
+            logdir = OssPath.LOG_DIR_PATH
+        else:
+            logdir = './training'
+        slim.learning.train(train_op=train_op,
+                            logdir=logdir,
                             init_fn=init_fn, number_of_steps=10,
                             save_summaries_secs=20,
                             save_interval_secs=600)
-        saver = tf.train.Saver()
-        # saver.save(ckpt_file_path)
 
 
-def image_to_tfrecord(img_file, record_file_num, label, record_path):
-    with tf.Session() as sess:
-        set_width, set_height = 224, 224
-        img_raw = tf.gfile.FastGFile(img_file, 'rb').read()
-        decode_data = tf.image.decode_jpeg(img_raw, channels=3)
-        decode_data = tf.image.resize_image_with_pad(
-            decode_data, target_height=set_height, target_width=set_width, method=tf.image.ResizeMethod.BILINEAR)
-        decode_data = tf.cast(decode_data, tf.uint8)
-        encoded_image = tf.image.encode_jpeg(decode_data)
-        img_raw = encoded_image.eval()
-
-        # 保存图片
-        with tf.gfile.GFile(record_path+'resize.jpg', 'wb') as f:
-            f.write(encoded_image.eval())
-
-        record_file_name = ("trains-%.3d.tfrecord" % record_file_num)
-        writer = tf.python_io.TFRecordWriter(record_path + record_file_name)
-        example = tf.train.Example(features=tf.train.Features(feature={
-                      'image/encoded': tf.train.Feature(bytes_list=tf.train.BytesList(value=[img_raw])),
-                      'image/format': tf.train.Feature(bytes_list=tf.train.BytesList(value=[b'jpg'])),
-                      'image/width': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_width])),
-                      'image/height': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_height])),
-                      'image/label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label]))
-        }))
-        writer.write(example.SerializeToString())
-    writer.close()
+def main(_):
+    is_oss = False
+    if is_oss:
+        pre_trained_model_path = OssPath.PRE_TRAINED_MODEL_PATH
+        tf_record_fold_path = OssPath.TF_RECORD_PATH
+    else:
+        pre_trained_model_path = PRE_TRAINED_MODEL_PATH
+        tf_record_fold_path = "./tfrecord"
+    train(pre_trained_model_path, os.path.join(tf_record_fold_path, "trains-*.tfrecord"))
 
 
 if __name__ == "__main__":
-    tf_record_fold_path = "./tfrecord/"
-    # image_to_tfrecord("https://wx1.sinaimg.cn/orj1080/53db7999gy1gd0cxmhljwj215o0rs4qp.jpg", 1, 0, tf_record_fold_path)
-    train(PRE_TRAINED_MODEL_PATH, tf_record_fold_path + "trains-*.tfrecord")
+    tf.app.run(main)
