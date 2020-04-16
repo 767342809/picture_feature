@@ -159,7 +159,7 @@ def main(_):
     else:
         pre_trained_model_path = PRE_TRAINED_MODEL_PATH
         tf_record_fold_path = "./tfrecord"
-    train(pre_trained_model_path, os.path.join(tf_record_fold_path, "trains-*.tfrecord"))
+    train(pre_trained_model_path, os.path.join(tf_record_fold_path, "trains-*.tfrecord"), is_oss)
 
 
 if __name__ == "__main__":
