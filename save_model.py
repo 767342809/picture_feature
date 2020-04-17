@@ -92,6 +92,39 @@ def load_pb():
         print(constant_op.name)
 
 
+def p():
+    img_file = "/Users/liangyue/Documents/frozen_model_vgg_16/2.jpg"
+    with tf.Session() as sess:
+        set_width, set_height = 224, 224
+        img_raw = tf.gfile.FastGFile(img_file, 'rb').read()
+        decode_data = tf.image.decode_jpeg(img_raw, channels=3)
+        decode_data = tf.image.resize_image_with_pad(
+            decode_data, target_height=set_height, target_width=set_width, method=tf.image.ResizeMethod.BILINEAR)
+        decode_data = tf.cast(decode_data, tf.uint8)
+        img = sess.run(decode_data)
+
+    frozen_graph_path = "./outfile/frozen_inference_graph.pb"
+    model_graph = tf.Graph()
+    with model_graph.as_default():
+        od_graph_def = tf.GraphDef()
+        with tf.gfile.GFile(frozen_graph_path, 'rb') as fid:
+            serialized_graph = fid.read()
+            od_graph_def.ParseFromString(serialized_graph)
+            tf.import_graph_def(od_graph_def, name='')
+
+    with model_graph.as_default():
+        with tf.Session(graph=model_graph) as sess:
+            inputs = model_graph.get_tensor_by_name('image_tensor:0')
+            # logits  classes
+            classes = model_graph.get_tensor_by_name('logits:0')
+            constant_ops = [op for op in sess.graph.get_operations()]
+            # for constant_op in constant_ops:
+            #     print(constant_op.name)
+            #
+            predicted_label = sess.run(classes, feed_dict={inputs: [img, img]})
+            print(predicted_label)
+
+
 if __name__ == '__main__':
-    main()
+    p()
     # load_pb()

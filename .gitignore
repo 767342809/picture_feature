@@ -35,3 +35,4 @@ vgg16/
 tfrecord/
 training/
 Constant.py
+outfile/

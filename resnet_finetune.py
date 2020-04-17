@@ -93,8 +93,8 @@ from tensorflow.contrib.slim.nets import vgg, resnet_v1
 
 
 def train(checkpoint_path, record_path, is_oss=False):
-    num_classes = 1000
-    dataset = get_record_dataset(record_path, num_samples=2,
+    num_classes = 10
+    dataset = get_record_dataset(record_path, num_samples=50000,
                                  num_classes=num_classes)
     data_provider = slim.dataset_data_provider.DatasetDataProvider(dataset)
     image, label = data_provider.get(['image', 'label'])
