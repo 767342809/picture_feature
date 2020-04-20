@@ -36,3 +36,4 @@ tfrecord/
 training/
 Constant.py
 outfile/
+resize/
