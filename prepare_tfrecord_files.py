@@ -22,8 +22,20 @@ def image_to_tfrecord(img_file, label, image_id, local_tf, is_save_show_picture=
         else:
             img_raw = tf.gfile.FastGFile(img_file, 'rb').read()
         decode_data = tf.image.decode_jpeg(img_raw, channels=3)
-        decode_data = tf.image.resize_image_with_pad(
-            decode_data, target_height=set_height, target_width=set_width, method=tf.image.ResizeMethod.BILINEAR)
+
+        # resize with padding
+        # decode_data = tf.image.resize_image_with_pad(
+        #     decode_data, target_height=set_height, target_width=set_width, method=tf.image.ResizeMethod.BILINEAR)
+        # decode_data = tf.cast(decode_data, tf.uint8)
+        # assert decode_data.shape == (224, 224, 3)
+        # encoded_image = tf.image.encode_jpeg(decode_data)
+        # print(encoded_image.eval())
+        # r = tf.image.decode_jpeg(encoded_image)
+        # print(r.shape)
+        # img_raw = encoded_image.eval()
+
+        # resize
+        decode_data = tf.image.resize_images(decode_data, [set_width, set_height])
         decode_data = tf.cast(decode_data, tf.uint8)
         encoded_image = tf.image.encode_jpeg(decode_data)
         img_raw = encoded_image.eval()
@@ -71,17 +83,19 @@ def prepare_train_data_in_oss():
         oss_tf = os.path.join(OssPath.TF_RECORD_PATH, tfrecord_name)
         try:
             image_to_tfrecord(img_url, label, img_id, local_tf, True)
-            if not bucket.object_exists(oss_tf):
-                bucket.put_object_from_file(oss_tf, local_tf)
-            else:
-                print("exist", oss_tf)
-            count += 1
-
-            if count % 100 == 0:
-                print(f"process {count} picture.")
         except Exception as e:
             print("e: ", e)
             print(img_id, img_url)
+            continue
+
+        if not bucket.object_exists(oss_tf):
+            bucket.put_object_from_file(oss_tf, local_tf)
+        else:
+            print("exist", oss_tf)
+
+        count += 1
+        if count % 100 == 0:
+            print(f"process {count} picture.")
 
 
 if __name__ == "__main__":

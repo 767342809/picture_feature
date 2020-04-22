@@ -4,6 +4,8 @@ import os
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+from finetune_model import Model
+
 PRE_TRAINED_MODEL_PATH = "/Users/liangyue/Documents/frozen_model_vgg_16/model/resnet_v1_50.ckpt"
 
 
@@ -89,66 +91,70 @@ def get_record_dataset(record_path,
         labels_to_names=labels_to_names)
 
 
-from tensorflow.contrib.slim.nets import vgg, resnet_v1
-
-
 def train(checkpoint_path, record_path, is_oss=False):
-    num_classes = 10
-    dataset = get_record_dataset(record_path, num_samples=50000,
+    num_classes = 8
+    num_samples = 960
+    batch_size = 200
+    dataset = get_record_dataset(record_path, num_samples=num_samples,
                                  num_classes=num_classes)
     data_provider = slim.dataset_data_provider.DatasetDataProvider(dataset)
     image, label = data_provider.get(['image', 'label'])
+    ##
+    # with tf.Session() as sess:
+    #     enc_image = tf.image.encode_jpeg(image)
+    #     img, labels = sess.run(
+    #         [enc_image, label])
+    #
+    #     f = tf.gfile.FastGFile('out.jpg', 'wb')
+    #     f.write(img)
+    #     f.close()
+    ##
+
     inputs, labels = tf.train.batch([image, label],
-                                    batch_size=2,
+                                    batch_size=batch_size,
                                     allow_smaller_final_batch=True)
     inputs = tf.cast(inputs, tf.float32)
+    print(inputs)
 
-    with slim.arg_scope(slim.nets.resnet_v1.resnet_arg_scope()):
-        net, endpoints = resnet_v1.resnet_v1_50(inputs, None)
-        net = tf.squeeze(net, axis=[1, 2])
-        logits = slim.fully_connected(net, num_outputs=num_classes,
-                                      activation_fn=None, scope='Predict')
-        logits = tf.nn.softmax(logits)
+    cls_model = Model(is_training=True, num_classes=num_classes)
+    prediction_dict = cls_model.predict(inputs)
+    loss_dict = cls_model.loss(prediction_dict, labels)
+    loss = loss_dict['loss']
 
-        vars_to_train = get_trainable_variables(
-            "resnet_v1_50/conv1, resnet_v1_50/block1, resnet_v1_50/block2, resnet_v1_50/block3, resnet_v1_50/block4"
-        )
-        # print("vars_to_train")
-        # for v in vars_to_train:
-        #     print(v, type(v))
+    postprocessed_dict = cls_model.postprocess(prediction_dict)
+    acc = cls_model.accuracy(postprocessed_dict, labels)
+    tf.summary.scalar('loss', loss)
+    tf.summary.scalar('accuracy', acc)
 
-        # optimizer = tf.train.MomentumOptimizer(learning_rate=0.1, momentum=0.9)
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1)
+    vars_to_train = get_trainable_variables(
+        "resnet_v1_50/conv1, resnet_v1_50/block1, resnet_v1_50/block2, resnet_v1_50/block3, resnet_v1_50/block4"
+    )
 
-        slim.losses.sparse_softmax_cross_entropy(
-            logits=logits,
-            labels=labels,
-            scope='Loss'
-        )
-        train_op = slim.learning.create_train_op(
-            slim.losses.get_total_loss(), optimizer,
-            summarize_gradients=True,
-            variables_to_train=vars_to_train
-        )
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.005)
+    train_op = slim.learning.create_train_op(
+        loss, optimizer,
+        summarize_gradients=True,
+        variables_to_train=vars_to_train
+    )
 
-        variables_to_restore = []
-        for var in slim.get_variables_to_restore():
-            variables_to_restore.append(var)
+    variables_to_restore = []
+    for var in slim.get_variables_to_restore():
+        variables_to_restore.append(var)
 
-        # print("variables_to_restore from model")
-        # for vv in variables_to_restore:
-        #     print(vv)
-        init_fn = slim.assign_from_checkpoint_fn(checkpoint_path, variables_to_restore, ignore_missing_vars=True)
+    # print("variables_to_restore from model")
+    # for vv in variables_to_restore:
+    #     print(vv)
+    init_fn = slim.assign_from_checkpoint_fn(checkpoint_path, variables_to_restore, ignore_missing_vars=True)
 
-        if is_oss:
-            logdir = OssPath.LOG_DIR_PATH
-        else:
-            logdir = './training'
-        slim.learning.train(train_op=train_op,
-                            logdir=logdir,
-                            init_fn=init_fn, number_of_steps=10,
-                            save_summaries_secs=20,
-                            save_interval_secs=600)
+    if is_oss:
+        logdir = OssPath.LOG_DIR_PATH
+    else:
+        logdir = './training'
+    slim.learning.train(train_op=train_op,
+                        logdir=logdir,
+                        init_fn=init_fn, number_of_steps=100,
+                        save_summaries_secs=20,
+                        save_interval_secs=600)
 
 
 def main(_):
