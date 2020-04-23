@@ -377,4 +377,4 @@ def export_inference_graph(input_type,
 
 
 if __name__ == "__main__":
-    export_inference_graph("image_tensor", Model(10, False), './training/model.ckpt-10', "./outfile", input_shape=[None, 224, 224, 3])
+    export_inference_graph("image_tensor", Model(4, False), './training/model.ckpt-500', "./outfile", input_shape=[None, 224, 224, 3])
