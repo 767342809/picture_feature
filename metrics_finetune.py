@@ -1,3 +1,4 @@
+import csv
 import ssl
 import pickle
 import urllib.request
@@ -28,22 +29,8 @@ def p():
     test_df_fn = "/Users/liangyue/PycharmProjects/bi_cron_job/backend/works/social_picture/data/test_data.p"
     with open(test_df_fn, "rb") as p:
         df = pickle.load(p)
-    count = 0
-    img_list = []
-    img_labels = []
-    for index, row in df.iterrows():
-        img_id, img_url, label = row["id"], row["url"], row["label"]
-        img = precess_img(img_url)
-        img_list.append(img)
-        img_labels.append(label)
-        count += 1
 
-        if count % 100 == 0:
-            print(f"process {count} img")
-
-    print(f"have {count} img in test.")
-    test_sample_n = count
-    frozen_graph_path = "./outfile/frozen_inference_graph.pb"
+    frozen_graph_path = "./outfile0.1/frozen_inference_graph.pb"
     model_graph = tf.Graph()
     with model_graph.as_default():
         od_graph_def = tf.GraphDef()
@@ -52,25 +39,54 @@ def p():
             od_graph_def.ParseFromString(serialized_graph)
             tf.import_graph_def(od_graph_def, name='')
 
+    batch_size = 200
     with model_graph.as_default():
         with tf.Session(graph=model_graph) as sess:
             inputs = model_graph.get_tensor_by_name('image_tensor:0')
             # logits  classes
             classes = model_graph.get_tensor_by_name('classes:0')
+            all_pred = []
+            all_label = []
+            with open("predict_results.csv", "w", encoding="utf-8") as f:
+                csv_writer = csv.writer(f)
+                csv_writer.writerow(["id", "url", "truth_label", "predict_label"])
+                sub_img_data, sub_labels, sub_img_url, sub_img_ids = [], [], [], []
+                count = 0
+                for index, row in df.iterrows():
+                    img_id, img_url, label = row["id"], row["url"], row["label"]
+                    img = precess_img(img_url)
+                    sub_img_data.append(img)
+                    sub_labels.append(label)
+                    sub_img_url.append(img_url)
+                    sub_img_ids.append(img_id)
+                    count += 1
+                    if len(sub_img_data) == batch_size:
+                        print(f"start process {batch_size} img")
+                        sub_pred = predict_work(sess, inputs, classes, sub_img_data)
+                        write_to_file(csv_writer, sub_img_ids, sub_labels, sub_img_url, sub_pred, batch_size)
+                        all_pred += sub_pred
+                        all_label += sub_labels
+                        sub_img_data, sub_labels, sub_img_url, sub_img_ids = [], [], [], []
 
-            batch_size = 200
-            round_num = int(test_sample_n / batch_size) + 1
-            pred = []
-            for i in range(round_num):
-                sub_data = img_list[i * batch_size: min((i+1)*batch_size, test_sample_n)]
-                predicted_label = sess.run(classes, feed_dict={inputs: sub_data})
-                print(len(predicted_label), predicted_label.tolist())
-                predicted_label = predicted_label.tolist()
-                pred += predicted_label
-    print(len(img_labels), img_labels)
-    print(len(pred), pred)
-    accuracy = sum(1 for x, y in zip(img_labels, pred) if x == y) / len(pred)
+                sub_pred = predict_work(sess, inputs, classes, sub_img_data)
+                write_to_file(csv_writer, sub_img_ids, sub_labels, sub_img_url, sub_pred, len(sub_img_ids))
+                all_pred += sub_pred
+                all_label += sub_labels
+    print(len(all_label), all_label)
+    print(len(all_pred), all_pred)
+    accuracy = sum(1 for x, y in zip(all_label, all_pred) if x == y) / len(all_pred)
     print(accuracy)
+
+
+def predict_work(sess, inputs, classes, sub_img_data):
+    predicted_label = sess.run(classes, feed_dict={inputs: sub_img_data})
+    predicted_label = predicted_label.tolist()
+    return predicted_label
+
+
+def write_to_file(writer, img_ids, labels, img_urls, pred_labels, length):
+    for i in range(length):
+        writer.writerow([img_ids[i], img_urls[i], labels[i], pred_labels[i]])
 
 
 if __name__ == '__main__':
