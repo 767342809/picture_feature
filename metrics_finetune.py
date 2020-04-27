@@ -5,6 +5,8 @@ import urllib.request
 
 import tensorflow as tf
 
+from Constant import LabelName
+
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
@@ -27,10 +29,11 @@ def precess_img(img_file):
 
 def p():
     test_df_fn = "/Users/liangyue/PycharmProjects/bi_cron_job/backend/works/social_picture/data/test_data.p"
+    # test_df_fn = "/Users/liangyue/Desktop/domaindL2Data/test_data.p"
     with open(test_df_fn, "rb") as p:
         df = pickle.load(p)
 
-    frozen_graph_path = "./outfile0.1/frozen_inference_graph.pb"
+    frozen_graph_path = "./outfilel2_0.1_1000/frozen_inference_graph.pb"
     model_graph = tf.Graph()
     with model_graph.as_default():
         od_graph_def = tf.GraphDef()
@@ -49,12 +52,19 @@ def p():
             all_label = []
             with open("predict_results.csv", "w", encoding="utf-8") as f:
                 csv_writer = csv.writer(f)
-                csv_writer.writerow(["id", "url", "truth_label", "predict_label"])
+                csv_writer.writerow(
+                    ["id", "url", "truth_label", "predict_label", "truth_label_name", "predict_label_name"]
+                )
                 sub_img_data, sub_labels, sub_img_url, sub_img_ids = [], [], [], []
                 count = 0
                 for index, row in df.iterrows():
                     img_id, img_url, label = row["id"], row["url"], row["label"]
-                    img = precess_img(img_url)
+                    try:
+                        img = precess_img(img_url)
+                    except Exception as e:
+                        print(e)
+                        print(img_id, img_url, label)
+                        continue
                     sub_img_data.append(img)
                     sub_labels.append(label)
                     sub_img_url.append(img_url)
@@ -85,8 +95,11 @@ def predict_work(sess, inputs, classes, sub_img_data):
 
 
 def write_to_file(writer, img_ids, labels, img_urls, pred_labels, length):
+    label_name = LabelName()
     for i in range(length):
-        writer.writerow([img_ids[i], img_urls[i], labels[i], pred_labels[i]])
+        writer.writerow(
+            [img_ids[i], img_urls[i], labels[i], pred_labels[i], label_name[labels[i]], label_name[pred_labels[i]]]
+        )
 
 
 if __name__ == '__main__':

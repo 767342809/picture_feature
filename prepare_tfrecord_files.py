@@ -81,17 +81,17 @@ def prepare_train_data_in_oss():
         tfrecord_name = f"trains-{img_id}.tfrecord"
         local_tf = os.path.join(LOCAL_TFRECORD_PATH, tfrecord_name)
         oss_tf = os.path.join(OssPath.TF_RECORD_PATH, tfrecord_name)
-        try:
-            image_to_tfrecord(img_url, label, img_id, local_tf, True)
-        except Exception as e:
-            print("e: ", e)
-            print(img_id, img_url)
-            continue
-
         if not bucket.object_exists(oss_tf):
+            try:
+                image_to_tfrecord(img_url, label, img_id, local_tf, True)
+            except Exception as e:
+                print("e: ", e)
+                print(img_id, img_url)
+                continue
             bucket.put_object_from_file(oss_tf, local_tf)
         else:
             print("exist", oss_tf)
+            continue
 
         count += 1
         if count % 100 == 0:

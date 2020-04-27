@@ -92,6 +92,24 @@ def load_pb():
         print(constant_op.name)
 
 
+def add_label():
+    import csv
+    import pandas as pd
+    from Constant import LabelName
+    with open("/Users/liangyue/Desktop/predict_results.csv", "r", encoding="utf-8") as f:
+        df = pd.read_csv(f)
+
+    ln = LabelName()
+    with open("l2_predict_results.csv", "w", encoding="utf-8") as p:
+        csv_writer = csv.writer(p)
+        csv_writer.writerow(["id", "url", "truth_label", "predict_label", "truth_label_name", "predict_label_name"])
+        for index, row in df.iterrows():
+            img_id, img_url, t_label, p_l = row["id"], row["url"], row["truth_label"], row["predict_label"]
+            csv_writer.writerow(
+                [img_id, img_url, t_label, p_l, ln[t_label], ln[p_l]]
+            )
+
+
 if __name__ == '__main__':
-    load_pb()
+    add_label()
 
