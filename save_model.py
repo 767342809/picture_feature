@@ -76,40 +76,39 @@ def main():
 
 
 def load_pb():
-    sess = tf.Session()
     model_1 = f'output_model/{model_name}/{model_name}.pb'
-    model_2 = f'{builder_result_path}/saved_model.pb'
+    # model_2 = f'{builder_result_path}/saved_model.pb'
 
     # first
-    with gfile.FastGFile(model_1, 'rb') as f:
-        graph_def = tf.GraphDef()
-        graph_def.ParseFromString(f.read())
-        sess.graph.as_default()
-        tf.import_graph_def(graph_def, name='')  # 导入计算图
+    with tf.Session() as sess:
+        with gfile.FastGFile(model_1, 'rb') as f:
+            graph_def = tf.GraphDef()
+            graph_def.ParseFromString(f.read())
+            sess.graph.as_default()
+            tf.import_graph_def(graph_def, name='')  # 导入计算图
 
-    constant_ops = [op for op in sess.graph.get_operations()]
-    for constant_op in constant_ops:
-        print(constant_op.name)
+            # constant_ops = [op for op in sess.graph.get_operations()]
+            # for constant_op in constant_ops:
+            #     print(constant_op.name)
+
+            for var in tf.trainable_variables():
+                print(var)
 
 
-def add_label():
-    import csv
-    import pandas as pd
-    from Constant import LabelName
-    with open("/Users/liangyue/Desktop/predict_results.csv", "r", encoding="utf-8") as f:
-        df = pd.read_csv(f)
+def load_ali_model():
+    model_path = "./multilabel_model"
+    with tf.Session(graph=tf.Graph()) as sess:
+        tf.saved_model.loader.load(sess, ['serve'], model_path)
 
-    ln = LabelName()
-    with open("l2_predict_results.csv", "w", encoding="utf-8") as p:
-        csv_writer = csv.writer(p)
-        csv_writer.writerow(["id", "url", "truth_label", "predict_label", "truth_label_name", "predict_label_name"])
-        for index, row in df.iterrows():
-            img_id, img_url, t_label, p_l = row["id"], row["url"], row["truth_label"], row["predict_label"]
-            csv_writer.writerow(
-                [img_id, img_url, t_label, p_l, ln[t_label], ln[p_l]]
-            )
+        constant_ops = [op for op in sess.graph.get_operations()]
+        for constant_op in constant_ops:
+            print(constant_op.name)
+
+        for var in tf.trainable_variables():
+            print(var)
 
 
 if __name__ == '__main__':
-    add_label()
+    load_ali_model()
+    # load_pb()
 

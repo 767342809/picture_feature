@@ -99,16 +99,6 @@ def train(checkpoint_path, record_path, is_oss=False):
                                  num_classes=num_classes)
     data_provider = slim.dataset_data_provider.DatasetDataProvider(dataset)
     image, label = data_provider.get(['image', 'label'])
-    ##
-    # with tf.Session() as sess:
-    #     enc_image = tf.image.encode_jpeg(image)
-    #     img, labels = sess.run(
-    #         [enc_image, label])
-    #
-    #     f = tf.gfile.FastGFile('out.jpg', 'wb')
-    #     f.write(img)
-    #     f.close()
-    ##
 
     inputs, labels = tf.train.batch([image, label],
                                     batch_size=batch_size,

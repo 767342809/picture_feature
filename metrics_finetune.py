@@ -29,11 +29,10 @@ def precess_img(img_file):
 
 def p():
     test_df_fn = "/Users/liangyue/PycharmProjects/bi_cron_job/backend/works/social_picture/data/test_data.p"
-    # test_df_fn = "/Users/liangyue/Desktop/domaindL2Data/test_data.p"
     with open(test_df_fn, "rb") as p:
         df = pickle.load(p)
 
-    frozen_graph_path = "./outfilel2_0.1_1000/frozen_inference_graph.pb"
+    frozen_graph_path = "./outfilel2_0.15_1000/frozen_inference_graph.pb"
     model_graph = tf.Graph()
     with model_graph.as_default():
         od_graph_def = tf.GraphDef()
