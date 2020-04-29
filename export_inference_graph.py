@@ -181,8 +181,10 @@ def _add_output_tensor_nodes(postprocessed_tensors):
     outputs = {}
     classes = postprocessed_tensors.get('classes')  # Assume containing 'classes'
     logits = postprocessed_tensors.get('logits')
+    multi = postprocessed_tensors.get('multi')
     outputs['classes'] = tf.identity(classes, name='classes')
     outputs['logits'] = tf.identity(logits, name='logits')
+    outputs['multi'] = tf.identity(multi, name='multi')
     for output_key in outputs:
         tf.add_to_collection(output_key, outputs[output_key])
     return outputs
@@ -377,4 +379,4 @@ def export_inference_graph(input_type,
 
 
 if __name__ == "__main__":
-    export_inference_graph("image_tensor", Model(35, False), './training/model.ckpt-1000', "./outfilel2_0.15_1000", input_shape=[None, 224, 224, 3])
+    export_inference_graph("image_tensor", Model(35, False), './training/model.ckpt-2000', "./outfilel2_0.05_2000", input_shape=[None, 224, 224, 3])
