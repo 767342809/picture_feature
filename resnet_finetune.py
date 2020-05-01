@@ -5,18 +5,9 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 from finetune_model import Model
+from preprocess_data_oss import OssPath, prepare_train_data_in_oss
 
 PRE_TRAINED_MODEL_PATH = "/Users/liangyue/Documents/frozen_model_vgg_16/model/resnet_v1_50.ckpt"
-
-
-class OssPath(object):
-    BUCKET_PATH = "oss://yit-prod-pai"
-    PREFIX = "ml-pai/image_finetune"
-    MODEL_NAME = "resnet_v1_50.ckpt"
-
-    PRE_TRAINED_MODEL_PATH = os.path.join(BUCKET_PATH, PREFIX, "pre_trained_model", MODEL_NAME)
-    TF_RECORD_PATH = os.path.join(BUCKET_PATH, PREFIX, "tfrecord_data")
-    LOG_DIR_PATH = os.path.join(BUCKET_PATH, PREFIX, "training_log")
 
 
 def get_trainable_variables(checkpoint_exclude_scopes=None):
@@ -92,19 +83,17 @@ def get_record_dataset(record_path,
 
 
 def train(checkpoint_path, record_path, is_oss=False):
-    num_classes = 8
-    num_samples = 960
-    batch_size = 200
+    num_classes = 158
+    num_samples = 57103
+    batch_size = 2000
     dataset = get_record_dataset(record_path, num_samples=num_samples,
                                  num_classes=num_classes)
     data_provider = slim.dataset_data_provider.DatasetDataProvider(dataset)
     image, label = data_provider.get(['image', 'label'])
-
     inputs, labels = tf.train.batch([image, label],
                                     batch_size=batch_size,
                                     allow_smaller_final_batch=True)
     inputs = tf.cast(inputs, tf.float32)
-    print(inputs)
 
     cls_model = Model(is_training=True, num_classes=num_classes)
     prediction_dict = cls_model.predict(inputs)
@@ -120,7 +109,7 @@ def train(checkpoint_path, record_path, is_oss=False):
         "resnet_v1_50/conv1, resnet_v1_50/block1, resnet_v1_50/block2, resnet_v1_50/block3, resnet_v1_50/block4"
     )
 
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.005)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1)
     train_op = slim.learning.create_train_op(
         loss, optimizer,
         summarize_gradients=True,
@@ -142,19 +131,20 @@ def train(checkpoint_path, record_path, is_oss=False):
         logdir = './training'
     slim.learning.train(train_op=train_op,
                         logdir=logdir,
-                        init_fn=init_fn, number_of_steps=100,
+                        init_fn=init_fn, number_of_steps=1000,
                         save_summaries_secs=20,
-                        save_interval_secs=600)
+                        save_interval_secs=60*30)
 
 
 def main(_):
-    is_oss = False
+    is_oss = True
     if is_oss:
         pre_trained_model_path = OssPath.PRE_TRAINED_MODEL_PATH
-        tf_record_fold_path = OssPath.TF_RECORD_PATH
+        tf_record_fold_path = OssPath.TRAIN_TF_RECORD_PATH
     else:
         pre_trained_model_path = PRE_TRAINED_MODEL_PATH
-        tf_record_fold_path = "./tfrecord"
+        tf_record_fold_path = "./tfrecord1"
+    prepare_train_data_in_oss()
     train(pre_trained_model_path, os.path.join(tf_record_fold_path, "trains-*.tfrecord"), is_oss)
 
 

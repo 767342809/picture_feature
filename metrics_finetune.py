@@ -24,6 +24,7 @@ def precess_img(img_file):
         decode_data = tf.image.resize_images(decode_data, [set_width, set_height])
         decode_data = tf.cast(decode_data, tf.uint8)
         img = sess.run(decode_data)
+    tf.reset_default_graph()
     return img
 
 
