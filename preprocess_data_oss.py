@@ -26,6 +26,18 @@ def image_to_tfrecord(img_file, label, image_id, is_save_show_picture=False):
         decode_data = tf.cast(decode_data, tf.uint8)
         encoded_image = tf.image.encode_jpeg(decode_data)
         img_raw = encoded_image.eval()
+        # resize with padding
+        # decode_data = tf.image.resize_image_with_pad(
+        #     decode_data, target_height=set_height, target_width=set_width, method=tf.image.ResizeMethod.BILINEAR)
+        # decode_data = tf.cast(decode_data, tf.uint8)
+        # assert decode_data.shape == (224, 224, 3)
+        # encoded_image = tf.image.encode_jpeg(decode_data)
+        # print(encoded_image.eval())
+        # r = tf.image.decode_jpeg(encoded_image)
+        # print(r.shape)
+        # img_raw = encoded_image.eval()
+
+        # resize
 
         if is_save_show_picture:
             folder = "./resize"
