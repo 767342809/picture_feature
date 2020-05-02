@@ -67,8 +67,8 @@ class Model(object):
         logits = prediction_dict['logits']
         logits = tf.nn.softmax(logits)
         classes = tf.argmax(logits, axis=1)
-        condition = tf.greater_equal(logits, 0.1)
-        multi_label = tf.where(condition, axis=1)
+        condition = tf.greater_equal(logits, (1/self.num_classes)*3)
+        multi_label = tf.where(condition)
         postprocessed_dict = {'logits': logits,
                               'classes': classes,
                               'multi': multi_label}
