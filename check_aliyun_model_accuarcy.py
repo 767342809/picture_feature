@@ -147,15 +147,7 @@ def record_accuracy(real, pred):
     return accuracy
 
 
-def append_ali_pred():
-    ali_df = load_pred_data()
-    my_pred_df = load_my_pred_data()
-    df1 = pd.merge(my_pred_df, ali_df, on="url")
-    df1 = df1.rename(columns={"tags": "ali_pred"})
-    df1 = df1[df1["predict_label_name"].notnull()]
-    file_name = os.path.join(path, merge_file)
-    df1.to_csv(file_name)
-
+def estimate(df1):
     truth = df1["truth_label_name"].to_list()
     ali_pred = df1["ali_pred"].to_list()
     my_pred = df1["predict_label_name"].to_list()
@@ -164,9 +156,28 @@ def append_ali_pred():
     print("my img_accuracy: ", img_accuracy(truth, my_pred), " record_accuracy: ", record_accuracy(truth, my_pred))
 
 
+def append_ali_pred():
+    ali_df = load_pred_data()
+    my_pred_df = load_my_pred_data()
+    df1 = pd.merge(my_pred_df, ali_df, on="url")
+    df1 = df1.rename(columns={"tags": "ali_pred"})
+    df1 = df1[df1["predict_label_name"].notnull()]
+    file_name = os.path.join(path, merge_file)
+    df1.to_csv(file_name)
+    estimate(df1)
+
+
+def look_acc(file_name):
+    df = pd.read_csv(file_name)
+    estimate(df)
+
+
 if __name__ == "__main__":
     # run()
     # generate_data_and_send_to_file()
     # generate_ali_test()
 
     append_ali_pred()
+    fns = [os.path.join(path, 'merge_results0.07_1000.csv'), os.path.join(path, 'merge_results0.1_1000.csv'), os.path.join(path, 'merge_results0.1_2000.csv')]
+    for fn in fns:
+        look_acc(fn)

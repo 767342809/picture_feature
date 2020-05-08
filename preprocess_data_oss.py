@@ -21,11 +21,13 @@ def image_to_tfrecord(img_file, label, image_id, is_save_show_picture=False):
         set_width, set_height = 224, 224
 
         img_raw = tf.gfile.FastGFile(img_file, 'rb').read()
-        decode_data = tf.image.decode_jpeg(img_raw, channels=3)
-        decode_data = tf.image.resize_images(decode_data, [set_width, set_height])
-        decode_data = tf.cast(decode_data, tf.uint8)
-        encoded_image = tf.image.encode_jpeg(decode_data)
-        img_raw = encoded_image.eval()
+        # decode_data = tf.image.decode_jpeg(img_raw, channels=3)
+        # decode_data = tf.image.resize_images(decode_data, [set_width, set_height])
+        # decode_data = tf.cast(decode_data, tf.uint8)
+        # encoded_image = tf.image.encode_jpeg(decode_data)
+        # img_raw = encoded_image.eval()
+
+
         # resize with padding
         # decode_data = tf.image.resize_image_with_pad(
         #     decode_data, target_height=set_height, target_width=set_width, method=tf.image.ResizeMethod.BILINEAR)
@@ -40,7 +42,7 @@ def image_to_tfrecord(img_file, label, image_id, is_save_show_picture=False):
         # resize
 
         if is_save_show_picture:
-            folder = "./resize"
+            folder = "./resize1"
             if not os.path.exists(folder):
                 os.makedirs(folder)
             local_picture_file = os.path.join(folder, image_id + '+resize.jpg')
@@ -76,7 +78,7 @@ def prepare_train_data_in_oss():
         oss_tf = os.path.join(OssPath.BUCKET_PATH, OssPath.TRAIN_TF_RECORD_PATH, tfrecord_name)
         if not os.path.exists(oss_tf):
             try:
-                tfrecord_img = image_to_tfrecord(img_path, label, img_id)
+                tfrecord_img = image_to_tfrecord(img_path, label, img_id, True)
             except Exception as e:
                 print("e: ", e)
                 print(img_id, img_path)

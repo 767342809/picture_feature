@@ -46,7 +46,7 @@ def predict_labels(is_multi=False):
         df = pickle.load(p)
     print("test size: ", len(df))
 
-    frozen_graph_path = "./outfilel3_0.1_2000/frozen_inference_graph.pb"
+    frozen_graph_path = "./outfilel3b_0.05_1000/frozen_inference_graph.pb"
     model_graph = tf.Graph()
     with model_graph.as_default():
         od_graph_def = tf.GraphDef()

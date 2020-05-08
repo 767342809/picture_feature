@@ -119,4 +119,4 @@ def check_tfrecord():
 
 
 if __name__ == "__main__":
-    check_tfrecord()
+    prepare_train_data_in_oss()
