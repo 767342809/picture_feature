@@ -26,7 +26,7 @@ def main():
     tf.reset_default_graph()
 
     # 240, 240, 3
-    input_node = tf.placeholder(tf.float32, shape=(299, 299, 3))
+    input_node = tf.placeholder(tf.uint8, shape=(299, 299, 3))
     input_node = tf.expand_dims(input_node, 0)
 
     # # vgg16
@@ -108,7 +108,36 @@ def load_ali_model():
             print(var)
 
 
+def load_myself_model():
+    frozen_graph_path = "./outfilel3b_0.05_1000/frozen_inference_graph.pb"
+    model_graph = tf.Graph()
+    with model_graph.as_default():
+        od_graph_def = tf.GraphDef()
+        with tf.gfile.GFile(frozen_graph_path, 'rb') as fid:
+            serialized_graph = fid.read()
+            od_graph_def.ParseFromString(serialized_graph)
+            tf.import_graph_def(od_graph_def, name='')
+
+    with tf.Session(graph=model_graph) as sess:
+            constant_ops = [op for op in sess.graph.get_operations()]
+            for constant_op in constant_ops:
+                print(constant_op.name)
+
+
+def save_label_file():
+    import json
+    path = "/Users/liangyue/PycharmProjects/bi_cron_job/backend/works/social_picture/data"
+    with open(os.path.join(path, "labels_to_new_labels_dict.txt"), "r") as f:
+        json_list = json.load(f)
+
+    with open("./label_index.txt", "w", encoding="utf-8") as p:
+        for name, label in json_list[1].items():
+            p.write(str(label) + ":" + name + "\n")
+
+
 if __name__ == '__main__':
-    load_ali_model()
+    # load_ali_model()
     # load_pb()
+    # load_myself_model()
+    save_label_file()
 

@@ -172,12 +172,44 @@ def look_acc(file_name):
     estimate(df)
 
 
+def merge_img_quality(model_no):
+    train_df_fn = "/Users/liangyue/PycharmProjects/bi_cron_job/backend/works/social_picture/data/train_data.p"
+    with open(train_df_fn, "rb") as p:
+        df_url = pickle.load(p)
+
+    if model_no == 0:
+        df_q = pd.read_csv('/Users/liangyue/PycharmProjects/neural-image-assessment-master/results.csv', sep=';')
+        with open("picture_quality_include_url.csv", "w", encoding="utf-8") as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(["id", "url", "mean", "std"])
+            for index, row in df_q.iterrows():
+                filename = row["filename"]
+                p_id = filename.split("/")[-1].split(".")[0]
+                url = df_url[df_url["id"] == p_id]["url"].values[0]
+                csv_writer.writerow([p_id, url, row["mean"], row["std"]])
+
+    if model_no == 1:
+        df_q = pd.read_csv('/Users/liangyue/PycharmProjects/image-quality-assessment-master/img_quality.csv')
+        df_s = df_url[["id", "url"]]
+        mer_df = pd.merge(df_q, df_s, on="id")
+        mer_df.to_csv("image_quality.csv")
+
+        # with open("picture_quality_include_url.csv", "w", encoding="utf-8") as f:
+        #     csv_writer = csv.writer(f)
+        #     csv_writer.writerow(["id", "url", "mean"])
+        #     for index, row in df_q.iterrows():
+        #         p_id = row["id"]
+        #         url = df_url[df_url["id"] == p_id]["url"].values[0]
+        #         csv_writer.writerow([p_id, url, row["mean"]])
+        #         break
+
+
 if __name__ == "__main__":
     # run()
     # generate_data_and_send_to_file()
     # generate_ali_test()
 
-    append_ali_pred()
-    fns = [os.path.join(path, 'merge_results0.07_1000.csv'), os.path.join(path, 'merge_results0.1_1000.csv'), os.path.join(path, 'merge_results0.1_2000.csv')]
+    # append_ali_pred()
+    fns = [os.path.join(path, 'merge_results.csv'), os.path.join(path, 'merge_results0.1_1000.csv'), os.path.join(path, 'merge_results0.1_2000.csv')]
     for fn in fns:
         look_acc(fn)

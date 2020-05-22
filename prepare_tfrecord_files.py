@@ -13,42 +13,55 @@ ssl._create_default_https_context = ssl._create_unverified_context
 LOCAL_TFRECORD_PATH = "./tfrecord"
 
 
-def image_to_tfrecord(img_file, label, image_id, local_tf, is_save_show_picture=False):
+def read_img(img_file):
+    if img_file.startswith("https:"):
+        req = urllib.request.Request(img_file)
+        response = urllib.request.urlopen(req)
+        img_raw = response.read()
+    else:
+        img_raw = tf.gfile.FastGFile(img_file, 'rb').read()
+    return img_raw
+
+
+def resize_img(img_raw, size):
+    decode_data = tf.image.decode_jpeg(img_raw, channels=3)
+    decode_data = tf.image.resize_images(decode_data, [size[0], size[1]])
+    decode_data = tf.cast(decode_data, tf.uint8)
+    encoded_image = tf.image.encode_jpeg(decode_data)
+    img_raw = encoded_image.eval()
+    return img_raw
+
+
+def save_to_jpg(folder, img_raw, picture_name):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    local_picture_file = os.path.join(folder, picture_name+'.jpg')
+    if not os.path.exists(local_picture_file):
+        with tf.gfile.GFile(local_picture_file, 'wb') as f:
+            f.write(img_raw)
+
+
+def image_to_tfrecord(img_file, label, image_id, local_tf, resize=True, is_save_to_jpg=False, is_save_tfrecord=True):
     with tf.Session():
+        img_raw = read_img(img_file)
         set_width, set_height = 224, 224
-        if img_file.startswith("https:"):
-            req = urllib.request.Request(img_file)
-            response = urllib.request.urlopen(req)
-            img_raw = response.read()
-        else:
-            img_raw = tf.gfile.FastGFile(img_file, 'rb').read()
-        decode_data = tf.image.decode_jpeg(img_raw, channels=3)
-
-        decode_data = tf.image.resize_images(decode_data, [set_width, set_height])
-        decode_data = tf.cast(decode_data, tf.uint8)
-        encoded_image = tf.image.encode_jpeg(decode_data)
-        img_raw = encoded_image.eval()
-
-        if is_save_show_picture:
-            folder = "./resize"
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-            local_picture_file = os.path.join(folder, image_id+'+resize.jpg')
-            if not os.path.exists(local_picture_file):
-                with tf.gfile.GFile(local_picture_file, 'wb') as f:
-                    f.write(img_raw)
-
-        writer = tf.python_io.TFRecordWriter(local_tf)
-        example = tf.train.Example(features=tf.train.Features(feature={
-                      'image/encoded': tf.train.Feature(bytes_list=tf.train.BytesList(value=[img_raw])),
-                      'image/format': tf.train.Feature(bytes_list=tf.train.BytesList(value=[b'jpg'])),
-                      'image/width': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_width])),
-                      'image/height': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_height])),
-                      'image/label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label]))
-        }))
-        writer.write(example.SerializeToString())
+        if resize:
+            img_raw = resize_img(img_raw, [set_width, set_height])
+        if is_save_to_jpg:
+            folder = "/Users/liangyue/Documents/picture"
+            save_to_jpg(folder, img_raw, image_id)
+        if is_save_tfrecord:
+            writer = tf.python_io.TFRecordWriter(local_tf)
+            example = tf.train.Example(features=tf.train.Features(feature={
+                          'image/encoded': tf.train.Feature(bytes_list=tf.train.BytesList(value=[img_raw])),
+                          'image/format': tf.train.Feature(bytes_list=tf.train.BytesList(value=[b'jpg'])),
+                          'image/width': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_width])),
+                          'image/height': tf.train.Feature(int64_list=tf.train.Int64List(value=[set_height])),
+                          'image/label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label]))
+            }))
+            writer.write(example.SerializeToString())
+            writer.close()
     tf.reset_default_graph()
-    writer.close()
 
 
 def save_local(local_tf, tfrecord):
@@ -67,7 +80,7 @@ def connect_pai_oss():
 def prepare_train_data_in_oss():
     if not os.path.exists(LOCAL_TFRECORD_PATH):
         os.makedirs(LOCAL_TFRECORD_PATH)
-    bucket = connect_pai_oss()
+    # bucket = connect_pai_oss()
     train_df_fn = "/Users/liangyue/PycharmProjects/bi_cron_job/backend/works/social_picture/data/train_data.p"
     with open(train_df_fn, "rb") as p:
         df = pickle.load(p)
@@ -82,12 +95,12 @@ def prepare_train_data_in_oss():
         oss_tf = os.path.join(OssPath.TF_RECORD_PATH, tfrecord_name)
         # if not bucket.object_exists(oss_tf):
         try:
-            image_to_tfrecord(img_url, label, img_id, local_tf)
+            image_to_tfrecord(img_url, label, img_id, local_tf, resize=False, is_save_tfrecord=False, is_save_to_jpg=True)
         except Exception as e:
             print("e: ", e)
             print(img_id, img_url)
             continue
-        bucket.put_object_from_file(oss_tf, local_tf)
+        # bucket.put_object_from_file(oss_tf, local_tf)
         # else:
         #     print("exist", oss_tf)
 
