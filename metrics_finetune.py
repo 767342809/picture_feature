@@ -4,10 +4,12 @@ import ssl
 import pickle
 import datetime
 import urllib.request
+import pandas as pd
 
 import tensorflow as tf
 
 from Constant import LabelName, TEST_PATH
+from check_aliyun_model_accuarcy import img_accuracy, record_accuracy
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -42,17 +44,27 @@ def load_test_data():
 
     grouped = test_df.groupby("url")
     urls = []
-    count = 0
+    # count = 0
     for name, group in grouped:
         urls.append(name)
-        count += 1
-        if count > 10:
-            break
-    print(urls)
+        # count += 1
+        # if count > 10:
+        #     break
 
     new_test_df = url_multi_label[url_multi_label["url"].isin(urls)]
-    print(len(new_test_df), new_test_df)
+    print("url length: ", len(new_test_df))
     return new_test_df
+
+
+def load_recent_days_test_data():
+    multi_label_file = os.path.join(TEST_PATH, "0526_3ago_all_url_multi_label.p")
+    with open(multi_label_file, "rb") as p:
+        url_multi_label = pickle.load(p)
+
+    url_multi_label = url_multi_label[url_multi_label["url"].map(lambda x: not x.endswith('.gif'))]
+
+    print("url length: ", len(url_multi_label))
+    return url_multi_label
 
 
 def predict_labels(is_multi=False):
@@ -67,8 +79,8 @@ def predict_labels(is_multi=False):
                                           sub_tags, sub_img_url, len(sub_img_url))
             return result
 
-    df = load_test_data()
-    frozen_graph_path = "./outfilel3b_0.05_1000/frozen_inference_graph.pb"
+    df = load_recent_days_test_data()
+    frozen_graph_path = "./outfilel0522_0.01_500/frozen_inference_graph.pb"
     model_graph = tf.Graph()
     with model_graph.as_default():
         od_graph_def = tf.GraphDef()
@@ -85,8 +97,6 @@ def predict_labels(is_multi=False):
         if is_multi:
             layer_name = "multi"
         outputs = model_graph.get_tensor_by_name(layer_name + ':0')
-        all_pred = []
-        all_label = []
         with open("predict_results.csv", "w", encoding="utf-8") as f:
             csv_writer = csv.writer(f)
             csv_writer.writerow(
@@ -109,28 +119,27 @@ def predict_labels(is_multi=False):
 
                 if len(sub_img_data) == batch_size:
                     print(f"start process {batch_size} img")
-                    sub_pred = session_predict()
-                    # for p in sub_pred:
-                    #     print("p: ", p)
-                    all_pred += sub_pred
-                    all_label += sub_tags
+                    session_predict()
                     sub_img_data, sub_tags, sub_img_url = [], [], []
-                    break
 
                 if count % batch_size == 0:
                     t = datetime.datetime.today()
                     print(f"{t} -- process {count} picture. {tags}")
 
             if len(sub_img_data) != 0:
-                sub_pred = session_predict()
-                all_pred += sub_pred
-                all_label += sub_tags
-    print(len(all_label), all_label)
-    print(len(all_pred), all_pred)
-    accuracy = sum(1 for x, y in zip(all_label, all_pred) if len(set(x).intersection(set(y))) > 0) / len(all_pred)
-    print("accuracy: ", accuracy)
-    accuracy1 = sum(len(set(x).intersection(set(y))) for x, y in zip(all_label, all_pred)) / sum([len(i) for i in all_pred])
-    print("accuracy1", accuracy1)
+                session_predict()
+
+
+def check_accuracy():
+    df = pd.read_csv("predict_results.csv")
+    df = df[df["predict_label_name"].notnull()]
+    real = df["truth_label_name"].to_list()
+    pred = df["predict_label_name"].to_list()
+    accuracy = img_accuracy(real, pred)
+    print("img_accuracy: ", accuracy)
+    accuracy1 = record_accuracy(real, pred)
+    print("record accuracy", accuracy1)
+    df.to_csv("predict_results.csv")
 
 
 def run_single_label(sess, inputs, outputs, sub_img_data, writer, labels, img_urls, length):
@@ -168,6 +177,8 @@ def __write_multi_label_to_file(writer, labels, img_urls, pred_labels, length):
     label_name = LabelName(3)
     for i in range(length):
         temp_pred_labels = pred_labels[i]
+        if not temp_pred_labels:
+            continue
         temp_pred_labels_name = ','.join(map(lambda x: label_name[x], temp_pred_labels))
         writer.writerow(
             [
@@ -181,3 +192,4 @@ def __write_multi_label_to_file(writer, labels, img_urls, pred_labels, length):
 
 if __name__ == '__main__':
     predict_labels(True)
+    check_accuracy()

@@ -110,6 +110,7 @@ def load_ali_model():
 
 def load_myself_model():
     frozen_graph_path = "./outfilel3b_0.05_1000/frozen_inference_graph.pb"
+    # frozen_graph_path = "/Users/liangyue/PycharmProjects/neural-image-assessment-master/trans_model/nasnet_weights.pb"
     model_graph = tf.Graph()
     with model_graph.as_default():
         od_graph_def = tf.GraphDef()
@@ -138,6 +139,6 @@ def save_label_file():
 if __name__ == '__main__':
     # load_ali_model()
     # load_pb()
-    # load_myself_model()
-    save_label_file()
+    load_myself_model()
+    # save_label_file()
 
